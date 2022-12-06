@@ -34,9 +34,6 @@ team_t team = {
     /* Second member's email address (leave blank if none) */
     "davidtwins6970@gmail.com"
     /* Third member's full name (leave blank if none) */
-    "dasol Kim",
-    /* Second member's email address (leave blank if none) */
-    ""
 };
 
 /* single word (4) or double word (8) alignment */
@@ -92,9 +89,9 @@ int mm_init(void)
     PUT(heap_listp + (2*WSIZE), PACK(DSIZE, 1));
     PUT(heap_listp + (3*WSIZE), PACK(0, 1));
     heap_listp += (2*WSIZE);
-    last_bp = (char *)heap_listp;
+    // last_bp = (char *)heap_listp;
 
-    if (extend_heap(CHUNKSIZE/WSIZE) == NULL){
+    if ((last_bp = extend_heap(CHUNKSIZE/WSIZE)) == NULL){
         return -1;
     }
     return 0;
@@ -156,18 +153,6 @@ static void *coalesce(void *bp){
  * mm_malloc - Allocate a block by incrementing the brk pointer.
  *     Always allocate a block whose size is a multiple of the alignment.
  */
-static void *find_fit(size_t asize){            /*first fit 으로 구현하기*/
-    char *bp;
-
-    for(bp = heap_listp; GET_SIZE(HDRP(bp)) == 0; bp = NEXT_BLKP(bp)){
-        if (GET_ALLOC(HDRP(bp)) == 0 && GET_SIZE(HDRP(bp)) >= asize){
-            return (void *) bp;
-        }
-    }
-
-    /*for 문 다 돌리면서 return 안됐으면, extend_heap실행하면 된다.*/
-    return NULL;
-}
 
 void *mm_malloc(size_t size)
 {
@@ -186,6 +171,7 @@ void *mm_malloc(size_t size)
     /* Search the free list for a fit */
     if ((bp = find_fit(asize)) != NULL){
         place(bp, asize);
+        last_bp = NEXT_BLKP(bp);  /*next fit을 위한 bp 저장*/
         return bp;
     }
     
@@ -195,6 +181,7 @@ void *mm_malloc(size_t size)
         return NULL;
     }
     place(bp, asize);
+    last_bp = NEXT_BLKP(bp);  /*next fit을 위한 bp 저장*/
     return bp;
 
 }
@@ -210,16 +197,35 @@ static void *find_fit(size_t asize){
     // }
     // return NULL;
 
-    /* First fit */
+    // /* First fit */
+    // void *bp;
+
+    // for(bp = (char*)heap_listp; GET_SIZE(HDRP(bp)) > 0; bp = NEXT_BLKP(bp)){
+    //     if (!GET_ALLOC(HDRP(bp))  && GET_SIZE(HDRP(bp)) >= asize){
+    //         return bp;
+    //     }
+    // }
+
+    // return NULL;
+
+    /* Next fit */
     void *bp;
 
-    for(bp = (char*)heap_listp; GET_SIZE(HDRP(bp)) > 0; bp = NEXT_BLKP(bp)){
+    for(bp = (char*)last_bp; GET_SIZE(HDRP(bp)) > 0; bp = NEXT_BLKP(bp)){
         if (!GET_ALLOC(HDRP(bp))  && GET_SIZE(HDRP(bp)) >= asize){
+            return bp;
+        }
+    }
+    
+    for(bp = (char *)heap_listp ; bp != last_bp ; bp = NEXT_BLKP(bp)) {
+        if (!GET_ALLOC(HDRP(bp)) && GET_SIZE(HDRP(bp)) >= asize)
+        {
             return bp;
         }
     }
 
     return NULL;
+
 }
 
 static void place(void *bp, size_t asize)
@@ -240,6 +246,15 @@ static void place(void *bp, size_t asize)
 }
 
 
+void mm_free(void *ptr)
+{
+    size_t size = GET_SIZE(HDRP(ptr));
+
+    PUT(HDRP(ptr), PACK(size, 0));
+    PUT(FTRP(ptr), PACK(size, 0));
+    coalesce(ptr);
+}
+
 /*
  * mm_realloc - Implemented simply in terms of mm_malloc and mm_free
  */
@@ -252,7 +267,7 @@ void *mm_realloc(void *ptr, size_t size)
     newptr = mm_malloc(size);
     if (newptr == NULL)
       return NULL;
-    copySize = *(size_t *)((char *)oldptr - SIZE_T_SIZE);
+    copySize = GET_SIZE(HDRP(oldptr));
     if (size < copySize)
       copySize = size;
     memcpy(newptr, oldptr, copySize);
