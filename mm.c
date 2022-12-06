@@ -76,7 +76,7 @@ static void *extend_heap(size_t words);
 static void *coalesce(void *bp);
 static void *heap_listp;
 void *mm_malloc(size_t size);
-void *place(char *bp, size_t asize);
+static void *place(char *bp, size_t asize);
 
 /* 
  * mm_init - initialize the malloc package.
@@ -210,7 +210,7 @@ void *mm_malloc(size_t size)
     return bp;
 }
 
-void *place(char *bp, size_t asize)
+static void *place(char *bp, size_t asize)
 {   
     size_t csize = GET_SIZE(HDRP(bp));
 
